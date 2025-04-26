@@ -1,12 +1,17 @@
 name: APK 打包与发布
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.2.3)'
+        required: false
   push:
     tags:
-      - "v*.*.*"
+      - 'v*.*.*'
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -26,9 +31,13 @@ jobs:
           ./gradlew assembleCiRelease
 
       - name: 发布至 GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: |
+          github.event_name == 'push' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.tag)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          files: app/build/outputs/apk/ci/release/*.apk
+          # 推 tag 时取 ref_name；手动触发时取用户输入
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag }}
+          files: |
+            app/build/outputs/apk/ci/release/*.apk
           token: ${{ secrets.GITHUB_TOKEN }}
